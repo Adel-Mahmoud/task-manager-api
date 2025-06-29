@@ -48,18 +48,25 @@ class User extends Authenticatable
         ];
     }
 
+    public function workspaces()
+    {
+        return $this->belongsToMany(Workspace::class, 'workspace_members')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
     public function projects()
     {
         return $this->belongsToMany(Project::class);
     }
 
-    public function assignedTasks()
-    {
-        return $this->hasMany(Task::class, 'assigned_to');
-    }
+    // public function assignedTasks()
+    // {
+    //     return $this->hasMany(Task::class, 'assigned_to');
+    // }
 
-    public function createdTasks()
-    {
-        return $this->hasMany(Task::class, 'created_by');
-    }
+    // public function createdTasks()
+    // {
+    //     return $this->hasMany(Task::class, 'created_by');
+    // }
 }

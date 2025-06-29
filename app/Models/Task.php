@@ -10,14 +10,13 @@ class Task extends Model
     use HasFactory;
 
     protected $fillable = [
+        'project_id',
+        'status_id',
+        'workspace_member_id',
         'title',
         'description',
-        'status',
-        'start_date',
-        'end_date',
-        'project_id',
-        'assigned_to',
-        'created_by'
+        'due_date',
+        'is_completed'
     ];
 
     public function project()
@@ -25,13 +24,13 @@ class Task extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function assignedTo()
+    public function status()
     {
-        return $this->belongsTo(User::class, 'assigned_to');
+        return $this->belongsTo(ProjectStatus::class, 'status_id');
     }
 
-    public function createdBy()
+    public function workspaceMember()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(WorkspaceMember::class);
     }
 }

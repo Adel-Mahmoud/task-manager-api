@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ProjectResource extends JsonResource
+class CommentResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -15,12 +15,12 @@ class ProjectResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'workspace_id' => $this->workspace_id,
-            'name' => $this->name,
-            'description' => $this->description,
-            'start_date' => $this->start_date,
-            'due_date' => $this->due_date,
+            'id'      => $this->id,
+            'user'    => new UserResource($this->whenLoaded('user')),
+            'task_id' => $this->task_id,
+            'content' => $this->content,
+            'parent_id' => $this->parent_id,
+            'children'  => CommentResource::collection($this->whenLoaded('children')),
             'created_at' => $this->created_at?->toDateTimeString(),
         ];
     }

@@ -2,48 +2,60 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Task;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Resources\TaskResource;
 
 class TaskController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return TaskResource::collection(Task::with('status', 'project', 'workspaceMember')->get());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'status_id' => 'required|exists:project_statuses,id',
+            'workspace_member_id' => 'required|exists:workspace_members,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'due_date' => 'nullable|date',
+            'is_completed' => 'boolean',
+        ]);
+
+        $task = Task::create($data);
+
+        return new TaskResource($task);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Task $task)
     {
-        //
+        return new TaskResource($task->load('status', 'project', 'workspaceMember'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Task $task)
     {
-        //
+        $data = $request->validate([
+            'status_id' => 'sometimes|exists:project_statuses,id',
+            'workspace_member_id' => 'sometimes|exists:workspace_members,id',
+            'title' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
+            'due_date' => 'nullable|date',
+            'is_completed' => 'boolean',
+        ]);
+
+        $task->update($data);
+
+        return new TaskResource($task);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Task $task)
     {
-        //
+        $task->delete();
+
+        return response()->noContent();
     }
 }

@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ProjectResource extends JsonResource
+class ProjectStatusResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,12 +16,8 @@ class ProjectResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'workspace_id' => $this->workspace_id,
+            'project_id' => $this->project_id,
             'name' => $this->name,
-            'description' => $this->description,
-            'start_date' => $this->start_date,
-            'due_date' => $this->due_date,
-            'created_at' => $this->created_at?->toDateTimeString(),
         ];
     }
 }
