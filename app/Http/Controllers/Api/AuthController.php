@@ -52,7 +52,7 @@ class AuthController extends Controller
 
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json(auth('sanctum')->user());
     }
 
     public function logout(Request $request)

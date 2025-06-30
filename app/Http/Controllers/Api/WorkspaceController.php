@@ -11,18 +11,19 @@ class WorkspaceController extends Controller
 {
     public function index()
     {
-        $workspaces = Workspace::where('user_id', auth()->id())->latest()->get();
+        $workspaces = Workspace::where('user_id', auth('sanctum')->id())->latest()->get();
         return WorkspaceResource::collection($workspaces);
     }
 
     public function store(Request $request)
-    {
+    {    
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
         $workspace = Workspace::create([
-            'user_id' => auth()->id(),
+            'user_id' => auth('sanctum')->id(),
             'name' => $validated['name'],
         ]);
 
@@ -38,7 +39,7 @@ class WorkspaceController extends Controller
 
     public function update(Request $request, Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
+        // $this->authorizeAccess($workspace);
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -60,6 +61,6 @@ class WorkspaceController extends Controller
 
     protected function authorizeAccess(Workspace $workspace)
     {
-        abort_if($workspace->user_id !== auth()->id(), 403, 'Unauthorized');
+        abort_if($workspace->user_id !== auth('sanctum')->id(), 403, 'Unauthorized');
     }
 }

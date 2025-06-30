@@ -15,12 +15,19 @@ class Authenticate
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->expectsJson()) {
-            // return redirect()->route('login');
-            return response()->json([
-                'message' => 'Unauthenticated. Please log in.'
-            ], 401);
+        if (!$request->bearerToken()) {
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
+        
+        if (!auth('sanctum')->check()) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        // if (!$request->expectsJson()) {
+        //     // return redirect()->route('login');
+        //     return response()->json([
+        //         'message' => 'Unauthenticated. Please log in.'
+        //     ], 401);
+        // }
         return $next($request);
     }
 }
