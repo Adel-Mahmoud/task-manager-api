@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\WorkspaceMember;
 use App\Http\Controllers\Controller;
@@ -24,21 +25,32 @@ class WorkspaceMemberController extends Controller
     {
         $data = $request->validate([
             'workspace_id' => 'required|exists:workspaces,id',
-            'user_id' => 'required|exists:users,id',
+            'emails' => 'required|string',
             'role' => 'in:owner,member',
         ]);
 
-        $exists = WorkspaceMember::where('workspace_id', $data['workspace_id'])
-            ->where('user_id', $data['user_id'])
-            ->exists();
+        $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
+        $users = User::whereIn('email', $emails)->get();
 
-        if ($exists) {
-            return response()->json(['message' => 'User already a member'], 422);
+        $addedMembers = [];
+
+        foreach ($users as $user) {
+            $exists = WorkspaceMember::where('workspace_id', $data['workspace_id'])
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (!$exists) {
+                $member = WorkspaceMember::create([
+                    'workspace_id' => $data['workspace_id'],
+                    'user_id' => $user->id,
+                    'role' => $data['role'] ?? 'member',
+                ]);
+
+                $addedMembers[] = $member->load('user');
+            }
         }
 
-        $member = WorkspaceMember::create($data);
-
-        return new WorkspaceMemberResource($member->load('user'));
+        return WorkspaceMemberResource::collection(collect($addedMembers));
     }
 
     public function destroy(WorkspaceMember $workspaceMember)

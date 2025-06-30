@@ -6,10 +6,10 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\ProjectController;
-use App\Http\Controllers\Api\TaskUserController;
 use App\Http\Controllers\Api\WorkspaceController;
 use App\Http\Controllers\Api\ProjectStatusController;
 use App\Http\Controllers\Api\WorkspaceMemberController;
+use App\Http\Controllers\Api\TaskUserController;
 
 Route::get('/test', function () {
     return response()->json(['message' => 'API is working']);
