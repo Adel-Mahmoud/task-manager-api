@@ -52,6 +52,33 @@ class TaskController extends Controller
         return new TaskResource($task);
     }
 
+    public function updateStatus(Request $request, Task $task)
+    {
+        $data = $request->validate([
+            'status_id' => 'required|exists:project_statuses,id',
+        ]);
+
+        $user = auth('sanctum')->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $workspaceMember = $user->workspaces
+            ->where('id', $task->workspace_member_id)
+            ->first();
+
+        if (!$workspaceMember) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $task->update([
+            'status_id' => $data['status_id']
+        ]);
+
+        return new TaskResource($task);
+    }
+
     public function destroy(Task $task)
     {
         $task->delete();
