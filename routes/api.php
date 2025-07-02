@@ -11,21 +11,23 @@ use App\Http\Controllers\Api\WorkspaceController;
 use App\Http\Controllers\Api\ProjectStatusController;
 use App\Http\Controllers\Api\WorkspaceMemberController;
 use App\Http\Controllers\Api\TaskUserController;
-
+// Authenticated routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth: ')->group(function () {
     Route::get('/test', function () {
-        return response()->json(['message' => 'API is working']);
+        return response()->json(['message' => 'API is working by sanctum']);
     });
-    ///////////
+    // User authentication routes
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    ///////////
+    // Resource routes
     Route::apiResource('users', UserController::class);
     Route::apiResource('workspaces', WorkspaceController::class);
+    Route::get('/workspaces/member', [WorkspaceController::class, 'myMemberWorkspaces']);
     Route::apiResource('workspace-members', WorkspaceMemberController::class)->only(['index', 'store', 'destroy']);
+    Route::get('/projects/member', [ProjectController::class,'myMemberProjects']);
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('project-statuses', ProjectStatusController::class);
     Route::apiResource('tasks', TaskController::class);

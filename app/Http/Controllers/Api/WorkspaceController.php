@@ -2,45 +2,90 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Resources\WorkspaceResource;
+use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
+use App\Models\WorkspaceMember;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\WorkspaceResource;
 
 class WorkspaceController extends Controller
 {
     public function index()
     {
         $workspaces = Workspace::where('user_id', auth('sanctum')->id())->latest()->get();
+        if ($workspaces->isEmpty()) {
+            return response()->json(['message' => 'No workspaces found for this account'], 404);
+        }
         return WorkspaceResource::collection($workspaces);
     }
 
-    public function store(Request $request)
-    {    
+    // public function myMemberWorkspaces()
+    // {
+    //     $userId = auth('sanctum')->id();
 
-        $validated = $request->validate([
+    //     $workspaces = WorkspaceMember::with('workspace')
+    //         ->where('user_id', $userId)
+    //         ->get()
+    //         ->pluck('workspace');
+
+    //     return WorkspaceResource::collection($workspaces);
+    // }
+
+    public function store(Request $request)
+    {
+        $userId = auth('sanctum')->id();
+
+        $data = $request->validate([
             'name' => 'required|string|max:255',
+            'emails' => 'required|string',
         ]);
 
         $workspace = Workspace::create([
-            'user_id' => auth('sanctum')->id(),
-            'name' => $validated['name'],
+            'user_id' => $userId,
+            'name' => $data['name'],
         ]);
 
-        return new WorkspaceResource($workspace);
+        $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
+        $users = User::whereIn('email', $emails)->get();
+
+        $addedMembers = [];
+
+        foreach ($users as $user) {
+            if ($user->id !== $userId) {
+                $exists = WorkspaceMember::where('workspace_id', $workspace->id)
+                    ->where('user_id', $user->id)
+                    ->exists();
+
+                if (!$exists) {
+                    $member = WorkspaceMember::create([
+                        'workspace_id' => $workspace->id,
+                        'user_id' => $user->id,
+                    ]);
+
+                    $addedMembers[] = $member->load('user');
+                }
+            }
+        }
+
+        $notFound = array_diff($emails, $users->pluck('email')->toArray());
+
+        return response()->json([
+            'workspace' => new WorkspaceResource($workspace),
+            'members' => $addedMembers,
+            'not_found_emails' => $notFound,
+        ]);
     }
 
     public function show(Workspace $workspace)
     {
-        // $this->authorizeAccess($workspace);
-
+        $this->authorizeAccess($workspace);
         return new WorkspaceResource($workspace);
     }
 
     public function update(Request $request, Workspace $workspace)
     {
-        // $this->authorizeAccess($workspace);
-
+        $this->authorizeAccess($workspace);
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
         ]);
@@ -52,8 +97,7 @@ class WorkspaceController extends Controller
 
     public function destroy(Workspace $workspace)
     {
-        // $this->authorizeAccess($workspace);
-
+        $this->authorizeAccess($workspace);
         $workspace->delete();
 
         return response()->json(['message' => 'Workspace deleted successfully']);

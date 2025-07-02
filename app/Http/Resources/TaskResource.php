@@ -24,6 +24,10 @@ class TaskResource extends JsonResource
             'due_date' => $this->due_date,
             'is_completed' => $this->is_completed,
             'created_at' => $this->created_at?->toDateTimeString(),
+            
+            'status' => new ProjectStatusResource($this->whenLoaded('status')),
+            'project' => new ProjectResource($this->whenLoaded('project')),
+            'workspace_member' => new WorkspaceMemberResource($this->whenLoaded('workspaceMember')),
         ];
     }
 }

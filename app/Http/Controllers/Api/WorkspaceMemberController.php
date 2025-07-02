@@ -14,11 +14,23 @@ class WorkspaceMemberController extends Controller
     {
         $workspaceId = $request->query('workspace_id');
 
-        $members = WorkspaceMember::with('user')
+        $members = WorkspaceMember::with('user', 'workspace')
             ->where('workspace_id', $workspaceId)
             ->get();
 
         return WorkspaceMemberResource::collection($members);
+    }
+
+    public function myWorkspaces()
+    {
+        $userId = auth('sanctum')->id();
+
+        $workspaces = WorkspaceMember::with('workspace')
+            ->where('user_id', $userId)
+            ->get()
+            ->pluck('workspace'); 
+
+        return response()->json($workspaces);
     }
 
     public function store(Request $request)

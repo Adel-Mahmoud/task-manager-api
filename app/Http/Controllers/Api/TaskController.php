@@ -11,8 +11,36 @@ class TaskController extends Controller
 {
     public function index()
     {
-        return TaskResource::collection(Task::with('status', 'project', 'workspaceMember')->get());
+        $userId = auth('sanctum')->id();
+        $projectId = request()->query('project_id');
+
+        $tasksQuery = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
+            ->whereHas('project.workspace', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            });
+
+        if ($projectId) {
+            $tasksQuery->where('project_id', $projectId);
+        }
+
+        $tasks = $tasksQuery->get();
+
+        return TaskResource::collection($tasks);
     }
+
+    public function myMemberTasks()
+    {
+        $userId = auth('sanctum')->id();
+
+        $tasks = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
+            ->whereHas('workspaceMember', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->get();
+
+        return TaskResource::collection($tasks);
+    }
+    
 
     public function store(Request $request)
     {
@@ -64,7 +92,7 @@ class TaskController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $workspaceMember = $user->workspaces
+        $workspaceMember = $user->workspaceMembers()
             ->where('id', $task->workspace_member_id)
             ->first();
 

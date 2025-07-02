@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('status_id')->constrained('project_statuses')->cascadeOnDelete();
-            $table->foreignId('workspace_member_id')->constrained()->cascadeOnDelete(); // الشخص الذي تم تعيين المهمة له
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // الشخص الذي تم تعيين المهمة له
             $table->string('title');
             $table->text('description')->nullable();
             $table->date('due_date')->nullable();

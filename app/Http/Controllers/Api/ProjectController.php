@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Http\Resources\ProjectResource;
+use App\Models\WorkspaceMember;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -13,9 +14,39 @@ class ProjectController extends Controller
     {
         $workspaceId = $request->query('workspace_id');
 
-        $projects = Project::where('workspace_id', $workspaceId)
-            ->latest()
-            ->get();
+        $userId = auth('sanctum')->id();
+
+        $projects = Project::whereHas('workspace', function ($query) use ($workspaceId, $userId) {
+            $query->where('id', $workspaceId)->where('user_id', $userId);
+        })->with('workspace', 'tasks')->latest()->get();
+
+        if ($projects->isEmpty()) {
+            return response()->json(['message' => 'No projects found for this workspace'], 404);
+        }
+
+        return ProjectResource::collection($projects);
+    }
+
+    public function myMemberProjects()
+    {
+        $userId = auth('sanctum')->id();
+
+        $workspaces = WorkspaceMember::with('workspace.projects')
+            ->where('user_id', $userId)
+            ->get()
+            ->pluck('workspace');
+        if ($workspaces->isEmpty()) {
+            return response()->json(['message' => 'No workspaces found for this user'], 404);
+        }
+        $projects = $workspaces->flatMap(function ($workspace) {
+            return $workspace->projects;
+        });
+
+        if ($projects->isEmpty()) {
+            return response()->json(['message' => 'No projects found for this workspace'], 404);
+        }
+
+        $projects->each->load(['workspace', 'tasks']);
 
         return ProjectResource::collection($projects);
     }
@@ -37,7 +68,7 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        return new ProjectResource($project);
+        return new ProjectResource($project->load('workspace', 'tasks'));
     }
 
     public function update(Request $request, Project $project)

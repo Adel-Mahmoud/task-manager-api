@@ -12,7 +12,7 @@ class Task extends Model
     protected $fillable = [
         'project_id',
         'status_id',
-        'workspace_member_id',
+        'user_id',
         'title',
         'description',
         'due_date',
