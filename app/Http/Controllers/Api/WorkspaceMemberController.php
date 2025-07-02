@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\User;
+use App\Models\Workspace;
 use Illuminate\Http\Request;
 use App\Models\WorkspaceMember;
 use App\Http\Controllers\Controller;
@@ -12,26 +13,30 @@ class WorkspaceMemberController extends Controller
 {
     public function index(Request $request)
     {
-        $workspaceId = $request->query('workspace_id');
-
+        $request->validate([
+            'workspace_id' => 'required|exists:workspaces,id',
+        ]);
         $members = WorkspaceMember::with('user', 'workspace')
-            ->where('workspace_id', $workspaceId)
+            ->whereHas('workspace', function ($query) {
+                $query->whare('user_id', auth('sanctum')->id());
+            })
+            ->where('workspace_id', $request->query('workspace_id'))
             ->get();
 
         return WorkspaceMemberResource::collection($members);
     }
 
-    public function myWorkspaces()
-    {
-        $userId = auth('sanctum')->id();
+    // public function myWorkspaces()
+    // {
+    //     $userId = auth('sanctum')->id();
 
-        $workspaces = WorkspaceMember::with('workspace')
-            ->where('user_id', $userId)
-            ->get()
-            ->pluck('workspace');
+    //     $workspaces = WorkspaceMember::with('workspace')
+    //         ->where('user_id', $userId)
+    //         ->get()
+    //         ->pluck('workspace');
 
-        return response()->json($workspaces);
-    }
+    //     return response()->json($workspaces);
+    // }
 
     public function store(Request $request)
     {
@@ -69,14 +74,8 @@ class WorkspaceMemberController extends Controller
     {
         $this->authorizeAccess($workspace);
         $data = $request->validate([
-            'workspace_id' => 'required|string|max:255',
             'emails' => 'required|string',
         ]);
-        // Validate the workspace ID
-        if ($workspace->id !== (int)$data['workspace_id']) {
-            return response()->json(['message' => 'Invalid workspace ID'], 400);
-        }
-        // Validate the emails
         $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
         if (empty($emails)) {
             return response()->json(['message' => 'No emails provided'], 400);

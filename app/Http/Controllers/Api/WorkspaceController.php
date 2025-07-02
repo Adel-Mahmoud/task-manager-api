@@ -11,6 +11,13 @@ use App\Http\Resources\WorkspaceResource;
 
 class WorkspaceController extends Controller
 {
+    public $userId;
+
+    public function __construct()
+    {
+        $this->userId = auth('sanctum')->id();
+    }
+
     public function index()
     {
         $workspaces = Workspace::where('user_id', auth('sanctum')->id())->latest()->get();
@@ -20,17 +27,17 @@ class WorkspaceController extends Controller
         return WorkspaceResource::collection($workspaces);
     }
 
-    // public function myMemberWorkspaces()
-    // {
-    //     $userId = auth('sanctum')->id();
+    public function MemberWorkspaces()
+    {
+//         $userId = $this->userId;
+//         return $userId;
+//         $workspaces = WorkspaceMember::with('workspace')
+//             ->where('user_id', $userId)
+//             ->get()
+//             ->pluck('workspace');
 
-    //     $workspaces = WorkspaceMember::with('workspace')
-    //         ->where('user_id', $userId)
-    //         ->get()
-    //         ->pluck('workspace');
-
-    //     return WorkspaceResource::collection($workspaces);
-    // }
+//         return WorkspaceResource::collection($workspaces);
+    }
 
     public function store(Request $request)
     {
@@ -50,7 +57,7 @@ class WorkspaceController extends Controller
     public function show(Workspace $workspace)
     {
         $this->authorizeAccess($workspace);
-        return new WorkspaceResource($workspace);
+        return new WorkspaceResource($workspace->load('members.user'));
     }
 
     public function update(Request $request, Workspace $workspace)

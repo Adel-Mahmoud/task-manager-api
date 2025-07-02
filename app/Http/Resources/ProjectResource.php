@@ -23,6 +23,7 @@ class ProjectResource extends JsonResource
             'due_date' => $this->due_date,
             'created_at' => $this->created_at?->toDateTimeString(),
             'workspace' => new WorkspaceResource($this->whenLoaded('workspace')),
+            'project_statuses' => ProjectStatusResource::collection($this->whenLoaded('projectStatuses')),
             'tasks' => TaskResource::collection($this->whenLoaded('tasks')),
         ];
     }

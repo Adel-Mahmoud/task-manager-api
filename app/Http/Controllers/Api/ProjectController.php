@@ -18,7 +18,7 @@ class ProjectController extends Controller
 
         $projects = Project::whereHas('workspace', function ($query) use ($workspaceId, $userId) {
             $query->where('id', $workspaceId)->where('user_id', $userId);
-        })->with('workspace', 'tasks')->latest()->get();
+        })->with('workspace', 'tasks','projectStatuses')->latest()->get();
 
         if ($projects->isEmpty()) {
             return response()->json(['message' => 'No projects found for this workspace'], 404);
@@ -68,11 +68,13 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        return new ProjectResource($project->load('workspace', 'tasks'));
+        $this->authorizeAccess($project);
+        return new ProjectResource($project->load('workspace', 'tasks','projectStatuses'));
     }
 
     public function update(Request $request, Project $project)
     {
+        $this->authorizeAccess($project);
         $data = $request->validate([
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
@@ -87,8 +89,17 @@ class ProjectController extends Controller
 
     public function destroy(Project $project)
     {
+        $this->authorizeAccess($project);
         $project->delete();
 
         return response()->json(['message' => 'Project deleted']);
+    }
+
+    protected function authorizeAccess(Project $project)
+    {
+        $userId = auth('sanctum')->id();
+        $workspaceOwnerId = $project->workspace->user_id ?? null;
+
+        abort_if($workspaceOwnerId !== $userId, 403, 'Unauthorized');
     }
 }

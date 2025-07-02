@@ -18,6 +18,11 @@ class Project extends Model
         'due_date',
     ];
 
+    public function projectStatuses()
+    {
+        return $this->hasMany(ProjectStatus::class);
+    }
+
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);

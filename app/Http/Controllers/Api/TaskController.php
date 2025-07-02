@@ -9,9 +9,16 @@ use App\Http\Resources\TaskResource;
 
 class TaskController extends Controller
 {
+    public $userId;
+
+    public function __construct()
+    {
+        $this->userId = auth('sanctum')->id();
+    }
+
     public function index()
     {
-        $userId = auth('sanctum')->id();
+        $userId = $this->userId;
         $projectId = request()->query('project_id');
 
         $tasksQuery = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
@@ -28,19 +35,18 @@ class TaskController extends Controller
         return TaskResource::collection($tasks);
     }
 
-    public function myMemberTasks()
-    {
-        $userId = auth('sanctum')->id();
+    // public function myMemberTasks()
+    // {
+    //     $userId = auth('sanctum')->id();
 
-        $tasks = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
-            ->whereHas('workspaceMember', function ($query) use ($userId) {
-                $query->where('user_id', $userId);
-            })
-            ->get();
+    //     $tasks = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
+    //         ->whereHas('workspaceMember', function ($query) use ($userId) {
+    //             $query->where('user_id', $userId);
+    //         })
+    //         ->get();
 
-        return TaskResource::collection($tasks);
-    }
-    
+    //     return TaskResource::collection($tasks);
+    // }
 
     public function store(Request $request)
     {
@@ -61,11 +67,14 @@ class TaskController extends Controller
 
     public function show(Task $task)
     {
+        $this->authorizeAccess($task);
         return new TaskResource($task->load('status', 'project', 'workspaceMember'));
     }
 
     public function update(Request $request, Task $task)
     {
+        $this->authorizeAccess($task);
+
         $data = $request->validate([
             'status_id' => 'sometimes|exists:project_statuses,id',
             'workspace_member_id' => 'sometimes|exists:workspace_members,id',
@@ -80,37 +89,55 @@ class TaskController extends Controller
         return new TaskResource($task);
     }
 
-    public function updateStatus(Request $request, Task $task)
-    {
-        $data = $request->validate([
-            'status_id' => 'required|exists:project_statuses,id',
-        ]);
+    // public function updateStatus(Request $request, Task $task)
+    // {
+    //     $data = $request->validate([
+    //         'status_id' => 'required|exists:project_statuses,id',
+    //     ]);
 
-        $user = auth('sanctum')->user();
+    //     $user = auth('sanctum')->user();
 
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+    //     if (!$user) {
+    //         return response()->json(['message' => 'Unauthorized'], 401);
+    //     }
 
-        $workspaceMember = $user->workspaceMembers()
-            ->where('id', $task->workspace_member_id)
-            ->first();
+    //     $workspaceMember = $user->workspaceMembers()
+    //         ->where('id', $task->workspace_member_id)
+    //         ->first();
 
-        if (!$workspaceMember) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
+    //     if (!$workspaceMember) {
+    //         return response()->json(['message' => 'Forbidden'], 403);
+    //     }
 
-        $task->update([
-            'status_id' => $data['status_id']
-        ]);
+    //     $task->update([
+    //         'status_id' => $data['status_id']
+    //     ]);
 
-        return new TaskResource($task);
-    }
+    //     return new TaskResource($task);
+    // }
 
     public function destroy(Task $task)
     {
+        $this->authorizeAccess($task);
+
         $task->delete();
 
-        return response()->noContent();
+        return response()->json(['message' => 'Task deleted successfully']);
+    }
+
+    public function authorizeAccess(Task $task)
+    {
+        $userId = $this->userId;
+        if (
+            !$task->relationLoaded('project') ||
+            !$task->project->relationLoaded('workspace')
+        ) {
+            $task->load('project.workspace');
+        }
+        $workspaceOwner = $task->project->workspace->user_id === $userId;
+
+        if (!$workspaceOwner) {
+            abort(403, 'Unauthorized');
+        }
     }
 }

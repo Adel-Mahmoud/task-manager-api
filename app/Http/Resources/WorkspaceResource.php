@@ -20,6 +20,8 @@ class WorkspaceResource extends JsonResource
             'user_id'     => $this->user_id,
             'created_at'  => $this->created_at?->toDateTimeString(),
             'updated_at'  => $this->updated_at?->toDateTimeString(),
+            'members'     => WorkspaceMemberResource::collection($this->whenLoaded('members')),
+            'owner'       => new UserResource($this->whenLoaded('owner')),
         ];
     }
 }
