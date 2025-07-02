@@ -28,7 +28,7 @@ class WorkspaceMemberController extends Controller
         $workspaces = WorkspaceMember::with('workspace')
             ->where('user_id', $userId)
             ->get()
-            ->pluck('workspace'); 
+            ->pluck('workspace');
 
         return response()->json($workspaces);
     }
@@ -65,10 +65,52 @@ class WorkspaceMemberController extends Controller
         return WorkspaceMemberResource::collection(collect($addedMembers));
     }
 
+    public function removeMembersFromWorkspace(Request $request, Workspace $workspace)
+    {
+        $this->authorizeAccess($workspace);
+        $data = $request->validate([
+            'workspace_id' => 'required|string|max:255',
+            'emails' => 'required|string',
+        ]);
+        // Validate the workspace ID
+        if ($workspace->id !== (int)$data['workspace_id']) {
+            return response()->json(['message' => 'Invalid workspace ID'], 400);
+        }
+        // Validate the emails
+        $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
+        if (empty($emails)) {
+            return response()->json(['message' => 'No emails provided'], 400);
+        }
+        // remove members from the workspace
+        $users = User::whereIn('email', $emails)->get();
+        $removedMembers = [];
+        foreach ($users as $user) {
+            if ($user->id !== auth('sanctum')->id()) {
+                $member = WorkspaceMember::where('workspace_id', $workspace->id)
+                    ->where('user_id', $user->id)
+                    ->first();
+
+                if ($member) {
+                    $member->delete();
+                    $removedMembers[] = $user;
+                }
+            }
+        }
+        return response()->json([
+            'message' => 'Members removed successfully',
+            'removed_members' => $removedMembers,
+        ]);
+    }
+
     public function destroy(WorkspaceMember $workspaceMember)
     {
         $workspaceMember->delete();
 
         return response()->json(['message' => 'Member removed']);
+    }
+
+    protected function authorizeAccess(Workspace $workspace)
+    {
+        abort_if($workspace->user_id !== auth('sanctum')->id(), 403, 'Unauthorized');
     }
 }

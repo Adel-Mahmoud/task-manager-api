@@ -14,7 +14,7 @@ class WorkspaceController extends Controller
     public function index()
     {
         $workspaces = Workspace::where('user_id', auth('sanctum')->id())->latest()->get();
-        if ($workspaces->isEmpty()) {
+        if($workspaces->isEmpty()) {
             return response()->json(['message' => 'No workspaces found for this account'], 404);
         }
         return WorkspaceResource::collection($workspaces);
@@ -35,10 +35,8 @@ class WorkspaceController extends Controller
     public function store(Request $request)
     {
         $userId = auth('sanctum')->id();
-
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'emails' => 'required|string',
         ]);
 
         $workspace = Workspace::create([
@@ -46,35 +44,7 @@ class WorkspaceController extends Controller
             'name' => $data['name'],
         ]);
 
-        $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
-        $users = User::whereIn('email', $emails)->get();
-
-        $addedMembers = [];
-
-        foreach ($users as $user) {
-            if ($user->id !== $userId) {
-                $exists = WorkspaceMember::where('workspace_id', $workspace->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if (!$exists) {
-                    $member = WorkspaceMember::create([
-                        'workspace_id' => $workspace->id,
-                        'user_id' => $user->id,
-                    ]);
-
-                    $addedMembers[] = $member->load('user');
-                }
-            }
-        }
-
-        $notFound = array_diff($emails, $users->pluck('email')->toArray());
-
-        return response()->json([
-            'workspace' => new WorkspaceResource($workspace),
-            'members' => $addedMembers,
-            'not_found_emails' => $notFound,
-        ]);
+        return new WorkspaceResource($workspace);
     }
 
     public function show(Workspace $workspace)
