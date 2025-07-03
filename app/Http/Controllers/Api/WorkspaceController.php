@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
 use App\Models\WorkspaceMember;
@@ -29,14 +28,13 @@ class WorkspaceController extends Controller
 
     public function MemberWorkspaces()
     {
-//         $userId = $this->userId;
-//         return $userId;
-//         $workspaces = WorkspaceMember::with('workspace')
-//             ->where('user_id', $userId)
-//             ->get()
-//             ->pluck('workspace');
+        $userId = $this->userId;
+        $workspaces = WorkspaceMember::with('workspace')
+            ->where('user_id', $userId)
+            ->get()
+            ->pluck('workspace');
 
-//         return WorkspaceResource::collection($workspaces);
+        return WorkspaceResource::collection($workspaces);
     }
 
     public function store(Request $request)

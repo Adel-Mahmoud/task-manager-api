@@ -35,18 +35,19 @@ class TaskController extends Controller
         return TaskResource::collection($tasks);
     }
 
-    // public function myMemberTasks()
-    // {
-    //     $userId = auth('sanctum')->id();
+    public function MemberTasks(Request $request)
+    {
+        $projectId = $request->query('project_id');
+        $userId = auth('sanctum')->id();
 
-    //     $tasks = Task::with(['status', 'project.workspace', 'workspaceMember.workspace'])
-    //         ->whereHas('workspaceMember', function ($query) use ($userId) {
-    //             $query->where('user_id', $userId);
-    //         })
-    //         ->get();
-
-    //     return TaskResource::collection($tasks);
-    // }
+        $tasks = Task::where('project_id', $projectId)
+            ->where('user_id', $userId)
+            ->get();
+        if ($tasks->isEmpty()) {
+            return response()->json(['message' => 'No tasks found for this project'], 404);
+        }
+        return TaskResource::collection($tasks);
+    }
 
     public function store(Request $request)
     {

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Http\Resources\ProjectResource;
-use App\Models\WorkspaceMember;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -27,30 +26,24 @@ class ProjectController extends Controller
         return ProjectResource::collection($projects);
     }
 
-    public function myMemberProjects()
+    public function MemberProjects(Request $request)
     {
+        $workspaceId = $request->query('workspace_id');
         $userId = auth('sanctum')->id();
 
-        $workspaces = WorkspaceMember::with('workspace.projects')
-            ->where('user_id', $userId)
-            ->get()
-            ->pluck('workspace');
-        if ($workspaces->isEmpty()) {
-            return response()->json(['message' => 'No workspaces found for this user'], 404);
-        }
-        $projects = $workspaces->flatMap(function ($workspace) {
-            return $workspace->projects;
-        });
-
+        $projects = Project::where('workspace_id', $workspaceId)
+            ->whereHas('tasks', function ($query) use ($workspaceId, $userId) {
+                $query->where('user_id', $userId);
+            })
+            ->with('workspace','tasks')
+            ->get();
         if ($projects->isEmpty()) {
             return response()->json(['message' => 'No projects found for this workspace'], 404);
         }
 
-        $projects->each->load(['workspace', 'tasks']);
-
         return ProjectResource::collection($projects);
     }
-
+  
     public function store(Request $request)
     {
         $data = $request->validate([
