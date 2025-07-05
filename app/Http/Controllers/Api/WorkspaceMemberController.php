@@ -89,6 +89,18 @@ class WorkspaceMemberController extends Controller
         ]);
     }
 
+    public function rejectMember(Request $request, Workspace $workspace)
+    {
+        $workspaceMember = WorkspaceMember::where('workspace_id', $workspace->id)
+            ->where('user_id', auth('sanctum')->id())
+            ->first();
+        if (!$workspaceMember) {
+            return response()->json(['message' => 'You are not a member of this workspace'], 404);
+        }
+        $workspaceMember->delete();
+        return response()->json(['message' => 'Membership request rejected']);
+    }
+
     public function destroy(WorkspaceMember $workspaceMember)
     {
         $workspaceMember->delete();

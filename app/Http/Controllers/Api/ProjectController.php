@@ -32,7 +32,7 @@ class ProjectController extends Controller
         $userId = auth('sanctum')->id();
 
         $projects = Project::where('workspace_id', $workspaceId)
-            ->whereHas('tasks', function ($query) use ($workspaceId, $userId) {
+            ->whereHas('tasks', function ($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
             ->with('workspace','tasks')

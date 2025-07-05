@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Task;
 use App\Models\Comment;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CommentResource;
-use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
@@ -25,11 +26,23 @@ class CommentController extends Controller
 
     public function show(Comment $comment)
     {
+        $this->authorizeAccess($comment);
         return new CommentResource($comment->load(['user', 'children']));
     }
 
     public function store(Request $request)
     {
+        $taskId = $request->query('task_id');
+        if (!$taskId) {
+            return response()->json(['message' => 'Task ID is required'], 400);
+        }
+        $task = Task::find($taskId);
+        if (!$task) {
+            return response()->json(['message' => 'Task not found'], 404);
+        }
+        if ($task->project->workspace->user_id !== $this->userId || $task->user_id !== $this->userId) {
+            return response()->json(['message' => 'Unauthorized action'], 403);
+        }
         $validated = $request->validate([
             'task_id'   => 'required|exists:tasks,id',
             'content'   => 'required|string',
@@ -55,7 +68,7 @@ class CommentController extends Controller
 
     public function authorizeAccess(Comment $comment)
     {
-        if ($comment->user_id !== $this->userId) {
+        if ($comment->user_id !== $this->userId || $comment->task->project->workspace->user_id !== $this->userId) {
             abort(403, 'Unauthorized action.');
         }
     }

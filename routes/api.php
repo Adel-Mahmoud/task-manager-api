@@ -21,17 +21,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Member Access
-    Route::get('/workspaces/member', [WorkspaceController::class, 'MemberWorkspaces']);
+    Route::get('/workspaces/member', [WorkspaceController::class, 'MemberWorkspaces']); 
+    Route::delete('/workspaces/member', [WorkspaceMemberController::class, 'rejectMember']);
     Route::get('/projects/member', [ProjectController::class, 'MemberProjects']);
     Route::get('/tasks/member', [TaskController::class, 'MemberTasks']);
+    Route::get('/task', [TaskController::class, 'MemberTask']);
     Route::apiResource('tasks', TaskController::class);
+    Route::post('/comments/create', [CommentController::class, 'store']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Owner Access
-    Route::apiResource('users', UserController::class);
     Route::apiResource('workspaces', WorkspaceController::class);
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('project-statuses', ProjectStatusController::class);
     Route::delete('/project-statuses', [ProjectStatusController::class, 'destroyMultiple']);
     Route::delete('/workspace-remove-members/{workspace}', [WorkspaceMemberController::class, 'removeMembersFromWorkspace']);
+    // Admin Access
+    Route::apiResource('users', UserController::class);
 });

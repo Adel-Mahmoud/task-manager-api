@@ -16,9 +16,9 @@ class ProjectStatusController extends Controller
         $this->userId = auth('sanctum')->id();
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $projectId = request()->query('project_id');
+        $projectId = $request->query('project_id');
         $userId = $this->userId;
         $statuses = [];
         if ($projectId) {
@@ -74,10 +74,24 @@ class ProjectStatusController extends Controller
         return new ProjectStatusResource($status);
     }
 
-    public function show(ProjectStatus $projectStatus)
+    public function show(Request $request)
     {
-        $this->authorizeAccess($projectStatus);
-        return new ProjectStatusResource($projectStatus);
+        $data = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+        ]);
+
+        if ($data['project_id']) {
+            $project = ProjectStatus::where('project_id', $data['project_id'])
+                ->whereHas('project.workspace', function ($query) {
+                    $query->where('user_id', $this->userId);
+                })->first();
+
+            if (!$project) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        }
+        $this->authorizeAccess($project);
+        return new ProjectStatusResource($project->project->projectStatuses);
     }
 
     public function update(Request $request, ProjectStatus $projectStatus)

@@ -38,7 +38,7 @@ class TaskController extends Controller
     public function MemberTasks(Request $request)
     {
         $projectId = $request->query('project_id');
-        $userId = auth('sanctum')->id();
+        $userId = $this->userId;
 
         $tasks = Task::where('project_id', $projectId)
             ->where('user_id', $userId)
@@ -47,6 +47,20 @@ class TaskController extends Controller
             return response()->json(['message' => 'No tasks found for this project'], 404);
         }
         return TaskResource::collection($tasks);
+    }
+
+    public function MemberTask(Request $request)
+    {
+        $taskId = $request->query('task_id');
+        $userId = $this->userId;
+
+        $task = Task::where('id', $taskId)
+            ->where('user_id', $userId)
+            ->first();
+        if ($task->isEmpty()) {
+            return response()->json(['message' => 'No task found for this project'], 404);
+        }
+        return TaskResource::collection($task);
     }
 
     public function store(Request $request)
