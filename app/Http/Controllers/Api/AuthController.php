@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -45,14 +46,14 @@ class AuthController extends Controller
         return response()->json([
             'data' => [
                 'token' => $token,
-                'user' => $user,
+                'user' => new UserResource($user),
                 ]
             ]);
     }
 
     public function user(Request $request)
     {
-        return response()->json(auth('sanctum')->user());
+        return response()->json(new UserResource(auth('sanctum')->user()), 200);
     }
 
     public function logout(Request $request)

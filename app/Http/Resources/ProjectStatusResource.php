@@ -18,6 +18,8 @@ class ProjectStatusResource extends JsonResource
             'id' => $this->id,
             'project_id' => $this->project_id,
             'name' => $this->name,
+            'project' => new ProjectResource($this->whenLoaded('project')),
+            'workspace' => new WorkspaceResource($this->whenLoaded('project.workspace')),
         ];
     }
 }

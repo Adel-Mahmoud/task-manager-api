@@ -17,11 +17,11 @@ class WorkspaceResource extends JsonResource
         return [
             'id'          => $this->id,
             'name'        => $this->name,
-            'user_id'     => $this->user_id,
             'created_at'  => $this->created_at?->toDateTimeString(),
             'updated_at'  => $this->updated_at?->toDateTimeString(),
             'members'     => WorkspaceMemberResource::collection($this->whenLoaded('members')),
             'owner'       => new UserResource($this->whenLoaded('owner')),
+            'projects'    => ProjectResource::collection($this->whenLoaded('projects')),
         ];
     }
 }

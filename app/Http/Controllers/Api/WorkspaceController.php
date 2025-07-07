@@ -49,13 +49,13 @@ class WorkspaceController extends Controller
             'name' => $data['name'],
         ]);
 
-        return new WorkspaceResource($workspace);
+        return new WorkspaceResource($workspace->load('owner'));
     }
 
     public function show(Workspace $workspace)
     {
         $this->authorizeAccess($workspace);
-        return new WorkspaceResource($workspace->load('members.user'));
+        return new WorkspaceResource($workspace->load('owner', 'members', 'projects' ));
     }
 
     public function update(Request $request, Workspace $workspace)
@@ -67,7 +67,7 @@ class WorkspaceController extends Controller
 
         $workspace->update($validated);
 
-        return new WorkspaceResource($workspace);
+        return new WorkspaceResource($workspace->load('owner'));
     }
 
     public function destroy(Workspace $workspace)

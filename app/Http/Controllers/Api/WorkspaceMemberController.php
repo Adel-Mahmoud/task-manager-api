@@ -26,12 +26,11 @@ class WorkspaceMemberController extends Controller
         return WorkspaceMemberResource::collection($members);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, Workspace $workspace)
     {
+        $this->authorizeAccess($workspace);
         $data = $request->validate([
-            'workspace_id' => 'required|exists:workspaces,id',
             'emails' => 'required|string',
-            'role' => 'in:owner,member',
         ]);
 
         $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
@@ -40,15 +39,14 @@ class WorkspaceMemberController extends Controller
         $addedMembers = [];
 
         foreach ($users as $user) {
-            $exists = WorkspaceMember::where('workspace_id', $data['workspace_id'])
+            $exists = WorkspaceMember::where('workspace_id', $workspace->id)
                 ->where('user_id', $user->id)
                 ->exists();
 
             if (!$exists) {
                 $member = WorkspaceMember::create([
-                    'workspace_id' => $data['workspace_id'],
+                    'workspace_id' => $workspace->id,
                     'user_id' => $user->id,
-                    'role' => $data['role'] ?? 'member',
                 ]);
 
                 $addedMembers[] = $member->load('user');

@@ -22,7 +22,6 @@ class WorkspaceMemberResource extends JsonResource
                 'name' => $this->user->name,
                 'email' => $this->user->email,
             ],
-            'role' => $this->role,
             'created_at' => $this->created_at?->toDateTimeString(),
         ];
     }

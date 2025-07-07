@@ -32,7 +32,7 @@ class TaskController extends Controller
 
         $tasks = $tasksQuery->get();
 
-        return TaskResource::collection($tasks);
+        return TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
     }
 
     public function MemberTasks(Request $request)
@@ -41,26 +41,28 @@ class TaskController extends Controller
         $userId = $this->userId;
 
         $tasks = Task::where('project_id', $projectId)
-            ->where('user_id', $userId)
+            ->where('workspace_member_id', $userId)
             ->get();
         if ($tasks->isEmpty()) {
             return response()->json(['message' => 'No tasks found for this project'], 404);
         }
-        return TaskResource::collection($tasks);
+        return TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
     }
 
-    public function MemberTask(Request $request)
+    public function MemberTask($taskId)
     {
-        $taskId = $request->query('task_id');
         $userId = $this->userId;
 
         $task = Task::where('id', $taskId)
-            ->where('user_id', $userId)
+            ->where('workspace_member_id', $userId)
+            ->with('status', 'project.workspace', 'workspaceMember.workspace', 'comments')
             ->first();
-        if ($task->isEmpty()) {
-            return response()->json(['message' => 'No task found for this project'], 404);
+
+        if (!$task) {
+            return response()->json(['message' => 'Task not found or unauthorized'], 404);
         }
-        return TaskResource::collection($task);
+
+        return new TaskResource($task);
     }
 
     public function store(Request $request)
@@ -77,13 +79,13 @@ class TaskController extends Controller
 
         $task = Task::create($data);
 
-        return new TaskResource($task);
+        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
     }
 
     public function show(Task $task)
     {
         $this->authorizeAccess($task);
-        return new TaskResource($task->load('status', 'project', 'workspaceMember'));
+        return new TaskResource($task->load('status', 'project', 'workspaceMember', 'comments'));
     }
 
     public function update(Request $request, Task $task)
@@ -101,35 +103,41 @@ class TaskController extends Controller
 
         $task->update($data);
 
-        return new TaskResource($task);
+        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace'));
     }
 
-    // public function updateStatus(Request $request, Task $task)
-    // {
-    //     $data = $request->validate([
-    //         'status_id' => 'required|exists:project_statuses,id',
-    //     ]);
+    public function taskStatus(Request $request, Task $task)
+    {
+        $data = $request->validate([
+            'status_id' => 'required|exists:project_statuses,id',
+        ]);
 
-    //     $user = auth('sanctum')->user();
+        if (!$task) {
+            return response()->json(['message' => 'Task not found'], 404);
+        }
 
-    //     if (!$user) {
-    //         return response()->json(['message' => 'Unauthorized'], 401);
-    //     }
+        if ($task->status_id === (int) $data['status_id']) {
+            return response()->json(['message' => 'Task status is already set to this status'], 400);
+        }
 
-    //     $workspaceMember = $user->workspaceMembers()
-    //         ->where('id', $task->workspace_member_id)
-    //         ->first();
+        if (!$task->relationLoaded('workspaceMember')) {
+            $task->load('workspaceMember');
+        }
 
-    //     if (!$workspaceMember) {
-    //         return response()->json(['message' => 'Forbidden'], 403);
-    //     }
+        $userId = auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-    //     $task->update([
-    //         'status_id' => $data['status_id']
-    //     ]);
+        if (!$task->workspaceMember || $task->workspaceMember->user_id !== $userId) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
-    //     return new TaskResource($task);
-    // }
+        $task->status_id = $data['status_id'];
+        $task->save();
+
+        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
+    }
 
     public function destroy(Task $task)
     {

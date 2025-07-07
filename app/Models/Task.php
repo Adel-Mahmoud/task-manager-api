@@ -12,7 +12,7 @@ class Task extends Model
     protected $fillable = [
         'project_id',
         'status_id',
-        'user_id',
+        'workspace_member_id',
         'title',
         'description',
         'due_date',
@@ -32,5 +32,10 @@ class Task extends Model
     public function workspaceMember()
     {
         return $this->belongsTo(WorkspaceMember::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
     }
 }

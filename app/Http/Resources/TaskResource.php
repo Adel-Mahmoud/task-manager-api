@@ -28,6 +28,7 @@ class TaskResource extends JsonResource
             'status' => new ProjectStatusResource($this->whenLoaded('status')),
             'project' => new ProjectResource($this->whenLoaded('project')),
             'workspace_member' => new WorkspaceMemberResource($this->whenLoaded('workspaceMember')),
+            'comments' => CommentResource::collection($this->whenLoaded('comments')),
         ];
     }
 }

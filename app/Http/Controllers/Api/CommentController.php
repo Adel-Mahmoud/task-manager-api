@@ -20,8 +20,26 @@ class CommentController extends Controller
     public function index(Request $request)
     {
         $taskId = $request->query('task_id');
-        $comments = Comment::with(['user', 'children'])->where('task_id', $taskId)->whereNull('parent_id')->get();
-        return CommentResource::collection($comments);
+
+        $task = Task::with('project.workspace')->findOrFail($taskId);
+
+        if (
+            $this->userId !== $task->project->workspace->user_id &&
+            !$task->comments()->where('user_id', $this->userId)->exists()
+        ) {
+            abort(403, 'Unauthorized action');
+        }
+
+        $comments = Comment::with(['user', 'task', 'children', 'parent'])
+            ->where('task_id', $taskId)
+            ->whereNull('parent_id')
+            ->get();
+
+        if ($comments->isEmpty()) {
+            return response()->json(['message' => 'No comments found for this task'], 404);
+        }
+
+        return CommentResource::collection($comments->load(['user', 'children']));
     }
 
     public function show(Comment $comment)
@@ -32,22 +50,20 @@ class CommentController extends Controller
 
     public function store(Request $request)
     {
-        $taskId = $request->query('task_id');
-        if (!$taskId) {
-            return response()->json(['message' => 'Task ID is required'], 400);
-        }
-        $task = Task::find($taskId);
-        if (!$task) {
-            return response()->json(['message' => 'Task not found'], 404);
-        }
-        if ($task->project->workspace->user_id !== $this->userId || $task->user_id !== $this->userId) {
-            return response()->json(['message' => 'Unauthorized action'], 403);
-        }
         $validated = $request->validate([
             'task_id'   => 'required|exists:tasks,id',
             'content'   => 'required|string',
             'parent_id' => 'nullable|exists:comments,id',
         ]);
+
+        $taskId = $validated['task_id'];
+        $task = Task::find($taskId);
+        if (!$task) {
+            return response()->json(['message' => 'Task not found'], 404);
+        }
+        if ($task->project->workspace->user_id !== $this->userId && $task->user_id !== $this->userId) {
+            return response()->json(['message' => 'Unauthorized action'], 403);
+        }
 
         $comment = Comment::create([
             'user_id'   => $this->userId,
@@ -56,7 +72,7 @@ class CommentController extends Controller
             'parent_id' => $validated['parent_id'] ?? null,
         ]);
 
-        return new CommentResource($comment->load(['user', 'children']));
+        return new CommentResource($comment->load(['user', 'children', 'task']));
     }
 
     public function destroy(Comment $comment)
@@ -68,8 +84,11 @@ class CommentController extends Controller
 
     public function authorizeAccess(Comment $comment)
     {
-        if ($comment->user_id !== $this->userId || $comment->task->project->workspace->user_id !== $this->userId) {
-            abort(403, 'Unauthorized action.');
+        if (
+            $comment->user_id !== $this->userId &&
+            $comment->task->project->workspace->user_id !== $this->userId
+        ) {
+            abort(403, 'Unauthorized action');
         }
     }
 }

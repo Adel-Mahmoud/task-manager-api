@@ -17,7 +17,7 @@ class ProjectController extends Controller
 
         $projects = Project::whereHas('workspace', function ($query) use ($workspaceId, $userId) {
             $query->where('id', $workspaceId)->where('user_id', $userId);
-        })->with('workspace', 'tasks','projectStatuses')->latest()->get();
+        })->with('workspace', 'tasks', 'projectStatuses')->latest()->get();
 
         if ($projects->isEmpty()) {
             return response()->json(['message' => 'No projects found for this workspace'], 404);
@@ -31,19 +31,26 @@ class ProjectController extends Controller
         $workspaceId = $request->query('workspace_id');
         $userId = auth('sanctum')->id();
 
-        $projects = Project::where('workspace_id', $workspaceId)
+        $projectsQuery = Project::query()
             ->whereHas('tasks', function ($query) use ($userId) {
-                $query->where('user_id', $userId);
-            })
-            ->with('workspace','tasks')
+                $query->where('workspace_member_id', $userId);
+            });
+
+        if ($workspaceId) {
+            $projectsQuery->where('workspace_id', $workspaceId);
+        }
+
+        $projects = $projectsQuery
+            ->with('workspace', 'tasks', 'projectStatuses')
             ->get();
+
         if ($projects->isEmpty()) {
             return response()->json(['message' => 'No projects found for this workspace'], 404);
         }
 
         return ProjectResource::collection($projects);
     }
-  
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -62,7 +69,7 @@ class ProjectController extends Controller
     public function show(Project $project)
     {
         $this->authorizeAccess($project);
-        return new ProjectResource($project->load('workspace', 'tasks','projectStatuses'));
+        return new ProjectResource($project->load('workspace', 'tasks', 'projectStatuses'));
     }
 
     public function update(Request $request, Project $project)

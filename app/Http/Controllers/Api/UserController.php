@@ -43,7 +43,6 @@ class UserController extends Controller
             'email'    => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
         ]);
-
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {

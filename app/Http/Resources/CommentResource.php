@@ -16,12 +16,14 @@ class CommentResource extends JsonResource
     {
         return [
             'id'      => $this->id,
-            'user'    => new UserResource($this->whenLoaded('user')),
             'task_id' => $this->task_id,
             'content' => $this->content,
             'parent_id' => $this->parent_id,
             'children'  => CommentResource::collection($this->whenLoaded('children')),
             'created_at' => $this->created_at?->toDateTimeString(),
+
+            'user'    => new UserResource($this->whenLoaded('user')),
+            'task'    => new TaskResource($this->whenLoaded('task')),
         ];
     }
 }
