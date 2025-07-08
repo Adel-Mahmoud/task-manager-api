@@ -61,7 +61,7 @@ class CommentController extends Controller
         if (!$task) {
             return response()->json(['message' => 'Task not found'], 404);
         }
-        if ($task->project->workspace->user_id !== $this->userId && $task->user_id !== $this->userId) {
+        if ($task->project->workspace->user_id !== $this->userId && $task->workspace_member_id !== $this->userId) {
             return response()->json(['message' => 'Unauthorized action'], 403);
         }
 

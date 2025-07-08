@@ -87,9 +87,9 @@ class WorkspaceMemberController extends Controller
         ]);
     }
 
-    public function rejectMember(Request $request, Workspace $workspace)
+    public function rejectMember($id)
     {
-        $workspaceMember = WorkspaceMember::where('workspace_id', $workspace->id)
+        $workspaceMember = WorkspaceMember::where('workspace_id', $id)
             ->where('user_id', auth('sanctum')->id())
             ->first();
         if (!$workspaceMember) {

@@ -21,8 +21,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Member Access
-    Route::get('/workspaces/member', [WorkspaceController::class, 'MemberWorkspaces']); 
-    Route::delete('/workspaces/member', [WorkspaceMemberController::class, 'rejectMember']);
+    Route::get('/workspace/member', [WorkspaceController::class, 'MemberWorkspaces']); 
+    Route::delete('/workspace/member/{memberId}', [WorkspaceMemberController::class, 'rejectMember']);
     Route::get('/projects/member', [ProjectController::class, 'MemberProjects']);
     Route::get('/tasks/member', [TaskController::class, 'MemberTasks']);
     Route::get('/task/{task}', [TaskController::class, 'MemberTask']);
