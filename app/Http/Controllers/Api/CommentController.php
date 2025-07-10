@@ -7,27 +7,29 @@ use App\Models\Comment;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CommentResource;
+use App\Traits\ApiResponse;
 
 class CommentController extends Controller
 {
-    public $userId;
+    use ApiResponse;
 
-    public function __construct()
-    {
-        $this->userId = auth('sanctum')->id();
-    }
+    public $userId;
 
     public function index(Request $request)
     {
         $taskId = $request->query('task_id');
 
-        $task = Task::with('project.workspace')->findOrFail($taskId);
+        $task = Task::with('project.workspace')->find($taskId);
+
+        if (! $task) {
+            return $this->errorResponse('Task not found', 404);
+        }
 
         if (
             $this->userId !== $task->project->workspace->user_id &&
             !$task->comments()->where('user_id', $this->userId)->exists()
         ) {
-            abort(403, 'Unauthorized action');
+            return $this->errorResponse('Unauthorized action', 403);
         }
 
         $comments = Comment::with(['user', 'task', 'children', 'parent'])
@@ -36,16 +38,19 @@ class CommentController extends Controller
             ->get();
 
         if ($comments->isEmpty()) {
-            return response()->json(['message' => 'No comments found for this task'], 404);
+            return $this->errorResponse('No comments found for this task', 404);
         }
 
-        return CommentResource::collection($comments->load(['user', 'children']));
+        return $this->successResponse(CommentResource::collection($comments->load(['user', 'children'])));
     }
 
     public function show(Comment $comment)
     {
-        $this->authorizeAccess($comment);
-        return new CommentResource($comment->load(['user', 'children']));
+        if (! $this->isAuthorized($comment)) {
+            return $this->errorResponse('Unauthorized action', 403);
+        }
+
+        return $this->successResponse(new CommentResource($comment->load(['user', 'children'])));
     }
 
     public function store(Request $request)
@@ -56,13 +61,17 @@ class CommentController extends Controller
             'parent_id' => 'nullable|exists:comments,id',
         ]);
 
-        $taskId = $validated['task_id'];
-        $task = Task::find($taskId);
-        if (!$task) {
-            return response()->json(['message' => 'Task not found'], 404);
+        $task = Task::with('project.workspace')->find($validated['task_id']);
+
+        if (! $task) {
+            return $this->errorResponse('Task not found', 404);
         }
-        if ($task->project->workspace->user_id !== $this->userId && $task->workspace_member_id !== $this->userId) {
-            return response()->json(['message' => 'Unauthorized action'], 403);
+
+        if (
+            $task->project->workspace->user_id !== $this->userId &&
+            $task->workspace_member_id !== $this->userId
+        ) {
+            return $this->errorResponse('Unauthorized action', 403);
         }
 
         $comment = Comment::create([
@@ -72,23 +81,23 @@ class CommentController extends Controller
             'parent_id' => $validated['parent_id'] ?? null,
         ]);
 
-        return new CommentResource($comment->load(['user', 'children', 'task']));
+        return $this->successResponse(new CommentResource($comment->load(['user', 'children', 'task'])), 'Comment created', 201);
     }
 
     public function destroy(Comment $comment)
     {
-        $this->authorizeAccess($comment);
+        if (! $this->isAuthorized($comment)) {
+            return $this->errorResponse('Unauthorized action', 403);
+        }
+
         $comment->delete();
-        return response()->json(['message' => 'Deleted']);
+
+        return $this->successResponse(null, 'Comment deleted');
     }
 
-    public function authorizeAccess(Comment $comment)
+    private function isAuthorized(Comment $comment): bool
     {
-        if (
-            $comment->user_id !== $this->userId &&
-            $comment->task->project->workspace->user_id !== $this->userId
-        ) {
-            abort(403, 'Unauthorized action');
-        }
+        return $comment->user_id === $this->userId ||
+               $comment->task->project->workspace->user_id === $this->userId;
     }
 }

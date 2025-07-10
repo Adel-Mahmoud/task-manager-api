@@ -6,13 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Http\Resources\ProjectResource;
 use Illuminate\Http\Request;
+use App\Traits\ApiResponse;
 
 class ProjectController extends Controller
 {
+    use ApiResponse;
+
     public function index(Request $request)
     {
         $workspaceId = $request->query('workspace_id');
-
         $userId = auth('sanctum')->id();
 
         $projects = Project::whereHas('workspace', function ($query) use ($workspaceId, $userId) {
@@ -20,10 +22,10 @@ class ProjectController extends Controller
         })->with('workspace', 'tasks', 'projectStatuses')->latest()->get();
 
         if ($projects->isEmpty()) {
-            return response()->json(['message' => 'No projects found for this workspace'], 404);
+            return $this->errorResponse('No projects found for this workspace', 404);
         }
 
-        return ProjectResource::collection($projects);
+        return $this->successResponse(ProjectResource::collection($projects), 'Projects retrieved successfully');
     }
 
     public function MemberProjects(Request $request)
@@ -40,15 +42,13 @@ class ProjectController extends Controller
             $projectsQuery->where('workspace_id', $workspaceId);
         }
 
-        $projects = $projectsQuery
-            ->with('workspace', 'tasks', 'projectStatuses')
-            ->get();
+        $projects = $projectsQuery->with('workspace', 'tasks', 'projectStatuses')->get();
 
         if ($projects->isEmpty()) {
-            return response()->json(['message' => 'No projects found for this workspace'], 404);
+            return $this->errorResponse('No projects found for this workspace', 404);
         }
 
-        return ProjectResource::collection($projects);
+        return $this->successResponse(ProjectResource::collection($projects), 'Projects retrieved successfully');
     }
 
     public function store(Request $request)
@@ -63,18 +63,22 @@ class ProjectController extends Controller
 
         $project = Project::create($data);
 
-        return new ProjectResource($project);
+        return $this->successResponse(new ProjectResource($project), 'Project created successfully', 201);
     }
 
     public function show(Project $project)
     {
-        $this->authorizeAccess($project);
-        return new ProjectResource($project->load('workspace', 'tasks', 'projectStatuses'));
+        $response = $this->authorizeAccess($project);
+        if ($response) return $response;
+
+        return $this->successResponse(new ProjectResource($project->load('workspace', 'tasks', 'projectStatuses')), 'Project retrieved');
     }
 
     public function update(Request $request, Project $project)
     {
-        $this->authorizeAccess($project);
+        $response = $this->authorizeAccess($project);
+        if ($response) return $response;
+
         $data = $request->validate([
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
@@ -84,15 +88,17 @@ class ProjectController extends Controller
 
         $project->update($data);
 
-        return new ProjectResource($project);
+        return $this->successResponse(new ProjectResource($project), 'Project updated successfully');
     }
 
     public function destroy(Project $project)
     {
-        $this->authorizeAccess($project);
+        $response = $this->authorizeAccess($project);
+        if ($response) return $response;
+
         $project->delete();
 
-        return response()->json(['message' => 'Project deleted']);
+        return $this->successResponse(null, 'Project deleted successfully');
     }
 
     protected function authorizeAccess(Project $project)
@@ -100,6 +106,8 @@ class ProjectController extends Controller
         $userId = auth('sanctum')->id();
         $workspaceOwnerId = $project->workspace->user_id ?? null;
 
-        abort_if($workspaceOwnerId !== $userId, 403, 'Unauthorized');
+        if ($workspaceOwnerId !== $userId) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
     }
 }

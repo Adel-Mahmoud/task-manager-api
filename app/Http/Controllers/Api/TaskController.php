@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Task;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskResource;
+use App\Traits\ApiResponse;
 
 class TaskController extends Controller
 {
+    use ApiResponse;
+
     public $userId;
 
     public function __construct()
@@ -32,7 +35,9 @@ class TaskController extends Controller
 
         $tasks = $tasksQuery->get();
 
-        return TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
+        return $this->successResponse(
+            TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'))
+        );
     }
 
     public function MemberTasks(Request $request)
@@ -43,10 +48,14 @@ class TaskController extends Controller
         $tasks = Task::where('project_id', $projectId)
             ->where('workspace_member_id', $userId)
             ->get();
+
         if ($tasks->isEmpty()) {
-            return response()->json(['message' => 'No tasks found for this project'], 404);
+            return $this->errorResponse('No tasks found for this project', 404);
         }
-        return TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
+
+        return $this->successResponse(
+            TaskResource::collection($tasks->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'))
+        );
     }
 
     public function MemberTask($taskId)
@@ -59,10 +68,10 @@ class TaskController extends Controller
             ->first();
 
         if (!$task) {
-            return response()->json(['message' => 'Task not found or unauthorized'], 404);
+            return $this->errorResponse('Task not found or unauthorized', 404);
         }
 
-        return new TaskResource($task);
+        return $this->successResponse(new TaskResource($task));
     }
 
     public function store(Request $request)
@@ -79,18 +88,27 @@ class TaskController extends Controller
 
         $task = Task::create($data);
 
-        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
+        return $this->successResponse(
+            new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments')),
+            'Task created successfully',
+            201
+        );
     }
 
     public function show(Task $task)
     {
-        $this->authorizeAccess($task);
-        return new TaskResource($task->load('status', 'project', 'workspaceMember', 'comments'));
+        $response = $this->authorizeAccess($task);
+        if ($response) return $response;
+
+        return $this->successResponse(
+            new TaskResource($task->load('status', 'project', 'workspaceMember', 'comments'))
+        );
     }
 
     public function update(Request $request, Task $task)
     {
-        $this->authorizeAccess($task);
+        $response = $this->authorizeAccess($task);
+        if ($response) return $response;
 
         $data = $request->validate([
             'status_id' => 'sometimes|exists:project_statuses,id',
@@ -103,7 +121,10 @@ class TaskController extends Controller
 
         $task->update($data);
 
-        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace'));
+        return $this->successResponse(
+            new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace')),
+            'Task updated successfully'
+        );
     }
 
     public function taskStatus(Request $request, Task $task)
@@ -113,11 +134,11 @@ class TaskController extends Controller
         ]);
 
         if (!$task) {
-            return response()->json(['message' => 'Task not found'], 404);
+            return $this->errorResponse('Task not found', 404);
         }
 
         if ($task->status_id === (int) $data['status_id']) {
-            return response()->json(['message' => 'Task status is already set to this status'], 400);
+            return $this->errorResponse('Task status is already set to this status', 400);
         }
 
         if (!$task->relationLoaded('workspaceMember')) {
@@ -126,41 +147,47 @@ class TaskController extends Controller
 
         $userId = auth('sanctum')->id();
         if (!$userId) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return $this->errorResponse('Unauthorized', 401);
         }
 
         if (!$task->workspaceMember || $task->workspaceMember->user_id !== $userId) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->errorResponse('Forbidden', 403);
         }
 
         $task->status_id = $data['status_id'];
         $task->save();
 
-        return new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments'));
+        return $this->successResponse(
+            new TaskResource($task->load('status', 'project.workspace', 'workspaceMember.workspace', 'comments')),
+            'Task status updated successfully'
+        );
     }
 
     public function destroy(Task $task)
     {
-        $this->authorizeAccess($task);
+        $response = $this->authorizeAccess($task);
+        if ($response) return $response;
 
         $task->delete();
 
-        return response()->json(['message' => 'Task deleted successfully']);
+        return $this->successResponse(null, 'Task deleted successfully');
     }
 
     public function authorizeAccess(Task $task)
     {
         $userId = $this->userId;
+
         if (
             !$task->relationLoaded('project') ||
             !$task->project->relationLoaded('workspace')
         ) {
             $task->load('project.workspace');
         }
+
         $workspaceOwner = $task->project->workspace->user_id === $userId;
 
         if (!$workspaceOwner) {
-            abort(403, 'Unauthorized');
+            return $this->errorResponse('Unauthorized', 403);
         }
     }
 }

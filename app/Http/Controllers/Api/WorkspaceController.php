@@ -7,9 +7,12 @@ use Illuminate\Http\Request;
 use App\Models\WorkspaceMember;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\WorkspaceResource;
+use App\Traits\ApiResponse;
 
 class WorkspaceController extends Controller
 {
+    use ApiResponse;
+
     public $userId;
 
     public function __construct()
@@ -19,67 +22,75 @@ class WorkspaceController extends Controller
 
     public function index()
     {
-        $workspaces = Workspace::where('user_id', auth('sanctum')->id())->latest()->get();
-        if($workspaces->isEmpty()) {
-            return response()->json(['message' => 'No workspaces found for this account'], 404);
+        $workspaces = Workspace::where('user_id', $this->userId)->latest()->get();
+
+        if ($workspaces->isEmpty()) {
+            return $this->errorResponse('No workspaces found for this account', 404);
         }
-        return WorkspaceResource::collection($workspaces);
+
+        return $this->successResponse(WorkspaceResource::collection($workspaces), 'Workspaces retrieved successfully');
     }
 
     public function MemberWorkspaces()
     {
-        $userId = $this->userId;
         $workspaces = WorkspaceMember::with('workspace')
-            ->where('user_id', $userId)
+            ->where('user_id', $this->userId)
             ->get()
             ->pluck('workspace');
 
-        return WorkspaceResource::collection($workspaces);
+        return $this->successResponse(WorkspaceResource::collection($workspaces), 'Member workspaces retrieved successfully');
     }
 
     public function store(Request $request)
     {
-        $userId = auth('sanctum')->id();
         $data = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
         $workspace = Workspace::create([
-            'user_id' => $userId,
+            'user_id' => $this->userId,
             'name' => $data['name'],
         ]);
 
-        return new WorkspaceResource($workspace->load('owner'));
+        return $this->successResponse(new WorkspaceResource($workspace->load('owner')), 'Workspace created successfully', 201);
     }
 
     public function show(Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
-        return new WorkspaceResource($workspace->load('owner', 'members', 'projects' ));
+        $response = $this->authorizeAccess($workspace);
+        if ($response) return $response;
+
+        return $this->successResponse(new WorkspaceResource($workspace->load('owner', 'members', 'projects')), 'Workspace details retrieved successfully');
     }
 
     public function update(Request $request, Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
+        $response = $this->authorizeAccess($workspace);
+        if ($response) return $response;
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
         ]);
 
         $workspace->update($validated);
 
-        return new WorkspaceResource($workspace->load('owner'));
+        return $this->successResponse(new WorkspaceResource($workspace->load('owner')), 'Workspace updated successfully');
     }
 
     public function destroy(Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
+        $response = $this->authorizeAccess($workspace);
+        if ($response) return $response;
+
         $workspace->delete();
 
-        return response()->json(['message' => 'Workspace deleted successfully']);
+        return $this->successResponse(null, 'Workspace deleted successfully');
     }
 
     protected function authorizeAccess(Workspace $workspace)
     {
-        abort_if($workspace->user_id !== auth('sanctum')->id(), 403, 'Unauthorized');
+        if ($workspace->user_id !== $this->userId) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
     }
 }

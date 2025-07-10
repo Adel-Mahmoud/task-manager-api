@@ -7,9 +7,12 @@ use Illuminate\Http\Request;
 use App\Models\ProjectStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProjectStatusResource;
+use App\Traits\ApiResponse;
 
 class ProjectStatusController extends Controller
 {
+    use ApiResponse;
+
     public $userId;
 
     public function __construct()
@@ -22,6 +25,7 @@ class ProjectStatusController extends Controller
         $projectId = $request->query('project_id');
         $userId = $this->userId;
         $statuses = [];
+
         if ($projectId) {
             $statuses = ProjectStatus::where('project_id', $projectId)
                 ->whereHas('project.workspace', function ($query) use ($userId) {
@@ -29,10 +33,12 @@ class ProjectStatusController extends Controller
                 })
                 ->get();
         }
+
         if ($statuses->isEmpty()) {
-            return response()->json(['message' => 'No project statuses found'], 404);
+            return $this->errorResponse('No project statuses found', 404);
         }
-        return ProjectStatusResource::collection($statuses->load('project', 'project.workspace'));
+
+        return $this->successResponse(ProjectStatusResource::collection($statuses->load('project', 'project.workspace')));
     }
 
     public function store(Request $request)
@@ -48,7 +54,7 @@ class ProjectStatusController extends Controller
             })->first();
 
         if (!$project) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->errorResponse('Unauthorized', 403);
         }
 
         $names = array_filter(array_map('trim', explode(',', $data['names'])));
@@ -69,12 +75,12 @@ class ProjectStatusController extends Controller
         }
 
         if (!$firstStatus) {
-            return response()->json(['message' => 'Failed to create project status'], 500);
+            return $this->errorResponse('Failed to create project status', 500);
         }
 
         $firstStatus->load('project', 'project.workspace');
 
-        return new ProjectStatusResource($firstStatus);
+        return $this->successResponse(new ProjectStatusResource($firstStatus), 'Project status created successfully', 201);
     }
 
     public function show(Request $request)
@@ -83,69 +89,83 @@ class ProjectStatusController extends Controller
             'project_id' => 'required|exists:projects,id',
         ]);
 
-        if ($data['project_id']) {
-            $project = ProjectStatus::where('project_id', $data['project_id'])
-                ->whereHas('project.workspace', function ($query) {
-                    $query->where('user_id', $this->userId);
-                })->first();
+        $projectStatus = ProjectStatus::where('project_id', $data['project_id'])
+            ->whereHas('project.workspace', function ($query) {
+                $query->where('user_id', $this->userId);
+            })->first();
 
-            if (!$project) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
+        if (!$projectStatus) {
+            return $this->errorResponse('Unauthorized', 403);
         }
-        $this->authorizeAccess($project);
-        return new ProjectStatusResource($project->project->projectStatuses->load('project'));
+
+        $authCheck = $this->authorizeAccess($projectStatus);
+        if ($authCheck) return $authCheck;
+
+        return $this->successResponse(new ProjectStatusResource($projectStatus->project->projectStatuses->load('project')));
     }
 
     public function update(Request $request, ProjectStatus $projectStatus)
     {
-        $this->authorizeAccess($projectStatus);
+        $authCheck = $this->authorizeAccess($projectStatus);
+        if ($authCheck) return $authCheck;
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
         $projectStatus->update($data);
 
-        return new ProjectStatusResource($projectStatus->load('project'));
+        return $this->successResponse(new ProjectStatusResource($projectStatus->load('project')), 'Project status updated successfully');
     }
 
     public function destroyMultiple(Request $request)
     {
         $projectId = $request->query('project_id');
+
         if (!$projectId) {
-            return response()->json(['message' => 'Project ID is required'], 422);
+            return $this->errorResponse('Project ID is required', 422);
         }
-        $this->authorizeAccess(ProjectStatus::where('project_id', $projectId)->first());
+
+        $firstStatus = ProjectStatus::where('project_id', $projectId)->first();
+        $authCheck = $this->authorizeAccess($firstStatus);
+        if ($authCheck) return $authCheck;
 
         $statuses_id = array_filter(explode(',', $request->query('statuses_id')));
 
         if (count($statuses_id) === 0) {
-            return response()->json(['message' => 'No statuses provided'], 422);
+            return $this->errorResponse('No statuses provided', 422);
         }
 
         $statuses = ProjectStatus::whereIn('id', $statuses_id)->get();
 
         foreach ($statuses as $status) {
-            $this->authorizeAccess($status);
+            $authCheck = $this->authorizeAccess($status);
+            if ($authCheck) return $authCheck;
         }
 
         ProjectStatus::whereIn('id', $statuses_id)->delete();
 
-        return response()->json(['message' => 'Project statuses deleted']);
+        return $this->successResponse(null, 'Project statuses deleted successfully');
     }
 
     public function destroy(ProjectStatus $projectStatus)
     {
-        $this->authorizeAccess($projectStatus);
+        $authCheck = $this->authorizeAccess($projectStatus);
+        if ($authCheck) return $authCheck;
+
         $projectStatus->delete();
 
-        return response()->json(['message' => 'Project status deleted']);
+        return $this->successResponse(null, 'Project status deleted successfully');
     }
 
     protected function authorizeAccess(ProjectStatus $projectStatus)
     {
         $userId = $this->userId;
         $workspaceOwnerId = $projectStatus->project->workspace->user_id ?? null;
-        abort_if($workspaceOwnerId !== $userId, 403, 'Unauthorized');
+
+        if ($workspaceOwnerId !== $userId) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
+        return null;
     }
 }

@@ -8,27 +8,34 @@ use Illuminate\Http\Request;
 use App\Models\WorkspaceMember;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\WorkspaceMemberResource;
+use App\Traits\ApiResponse;
 
 class WorkspaceMemberController extends Controller
 {
+
+    use ApiResponse;
+
     public function index(Request $request)
     {
         $request->validate([
             'workspace_id' => 'required|exists:workspaces,id',
         ]);
+
         $members = WorkspaceMember::with('user', 'workspace')
             ->whereHas('workspace', function ($query) {
-                $query->whare('user_id', auth('sanctum')->id());
+                $query->where('user_id', auth('sanctum')->id());
             })
             ->where('workspace_id', $request->query('workspace_id'))
             ->get();
 
-        return WorkspaceMemberResource::collection($members);
+        return $this->successResponse(WorkspaceMemberResource::collection($members), 'Members retrieved successfully');
     }
 
     public function store(Request $request, Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
+        $response = $this->authorizeAccess($workspace);
+        if ($response) return $response;
+
         $data = $request->validate([
             'emails' => 'required|string',
         ]);
@@ -48,27 +55,31 @@ class WorkspaceMemberController extends Controller
                     'workspace_id' => $workspace->id,
                     'user_id' => $user->id,
                 ]);
-
                 $addedMembers[] = $member->load('user');
             }
         }
 
-        return WorkspaceMemberResource::collection(collect($addedMembers));
+        return $this->successResponse(WorkspaceMemberResource::collection(collect($addedMembers)), 'Members added successfully');
     }
 
     public function removeMembersFromWorkspace(Request $request, Workspace $workspace)
     {
-        $this->authorizeAccess($workspace);
+        $response = $this->authorizeAccess($workspace);
+        if ($response) return $response;
+
         $data = $request->validate([
             'emails' => 'required|string',
         ]);
+
         $emails = array_filter(array_map('trim', explode(',', $data['emails'])));
+
         if (empty($emails)) {
-            return response()->json(['message' => 'No emails provided'], 400);
+            return $this->errorResponse('No emails provided', 400);
         }
-        // remove members from the workspace
+
         $users = User::whereIn('email', $emails)->get();
         $removedMembers = [];
+
         foreach ($users as $user) {
             if ($user->id !== auth('sanctum')->id()) {
                 $member = WorkspaceMember::where('workspace_id', $workspace->id)
@@ -81,10 +92,8 @@ class WorkspaceMemberController extends Controller
                 }
             }
         }
-        return response()->json([
-            'message' => 'Members removed successfully',
-            'removed_members' => $removedMembers,
-        ]);
+
+        return $this->successResponse($removedMembers, 'Members removed successfully');
     }
 
     public function rejectMember($id)
@@ -92,22 +101,27 @@ class WorkspaceMemberController extends Controller
         $workspaceMember = WorkspaceMember::where('workspace_id', $id)
             ->where('user_id', auth('sanctum')->id())
             ->first();
+
         if (!$workspaceMember) {
-            return response()->json(['message' => 'You are not a member of this workspace'], 404);
+            return $this->errorResponse('You are not a member of this workspace', 404);
         }
+
         $workspaceMember->delete();
-        return response()->json(['message' => 'Membership request rejected']);
+
+        return $this->successResponse(null, 'Membership request rejected');
     }
 
     public function destroy(WorkspaceMember $workspaceMember)
     {
         $workspaceMember->delete();
 
-        return response()->json(['message' => 'Member removed']);
+        return $this->successResponse(null, 'Member removed');
     }
 
     protected function authorizeAccess(Workspace $workspace)
     {
-        abort_if($workspace->user_id !== auth('sanctum')->id(), 403, 'Unauthorized');
+        if ($workspace->user_id !== auth('sanctum')->id()) {
+            return $this->errorResponse('Unauthorized', 403);
+        }
     }
 }
